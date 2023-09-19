@@ -7,7 +7,7 @@ This is a meta-programming attempt to introduce the feature of [Const Generics i
 
 ```lisp
 (defstruct-generic Matrix ((rank t) (dtype keyword))
-		   :slots (data)
+		   :slots (vec)
 		   :args  (&key (vec nil)))
 ```
 
