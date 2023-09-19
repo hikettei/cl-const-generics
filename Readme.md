@@ -53,11 +53,11 @@ The primaly strategy is that reading type-specifiers with parameters before comp
 
 ## Goals
 
-- Zero effects on execution time
+- Completely zero effects on a execution time.
 
-- User-definied combinations of `typep`. `T` as everything.
+- `typep` is user extensible. and `T` match everything.
 
-- I want to be able to add to an existing project in one line; automatically wrapping existing CLOS class with the structure.
+- Just one line is need to wrap existing CLOS class. and no other code rewriting is never needed.
 
 - AOT Shape Error of matrix operations. Ultimately, Merge into cl-waffe2.
 
