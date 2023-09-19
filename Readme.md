@@ -10,3 +10,10 @@ This is an attempted to introduce [Const Generics](https://practice.rs/generics-
 - The aim is to apply into tensor operations
 
 
+## Usage
+
+```lisp
+(the #.(Tensor 1) (make-tensor 1))
+(defmethod add ((a #.(tensor 1))) )
+```
+
