@@ -2,10 +2,15 @@
 (in-package :cl-user)
 
 (defpackage :cl-const-generics
-  (:use :cl))
+  (:use :cl)
+  (:export
+   #:defstruct-generic
+   #:<const>))
 
 (in-package :cl-const-generics)
 
-(defpackage :cl-const-generics.subtypes
-  (:use :cl))
+(eval-when (:compile-toplevel :execute :load-toplevel)
+  #.(progn
+      (defparameter *subtype-package-name* (intern (symbol-name (gensym)) "KEYWORD"))
+      (eval `(defpackage ,*subtype-package-name*))))
 

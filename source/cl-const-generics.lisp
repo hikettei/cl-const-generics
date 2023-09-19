@@ -1,9 +1,12 @@
 
 (in-package :cl-const-generics)
 
+;; Typep分岐。。。 (make-tensor `(a b)) mitaina kotoga sitai.
+;; ^ そもそも警告出すべき
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun delete-subtype (structure-name)
-    (let ((deflist (apropos-list structure-name (find-package :cl-const-generics.subtypes))))
+    (let ((deflist (apropos-list structure-name (find-package *subtype-package-name*))))
       (dolist (def deflist)
 	(setf (find-class def) nil))))
   
@@ -11,7 +14,7 @@
     (intern (with-output-to-string (out) (dolist (sym inputs) (princ sym out)))))
   
   (defun symb-cache (&rest inputs)
-    (intern (with-output-to-string (out) (dolist (sym inputs) (princ sym out))) (find-package :cl-const-generics.subtypes)))
+    (intern (with-output-to-string (out) (dolist (sym inputs) (princ sym out))) (find-package *subtype-package-name*)))
   
   (defun env-parameter-p (sym) (equal (aref (symbol-name sym) 0) #\&))
   (defun get-params (list)
@@ -56,7 +59,7 @@
 	       (struct (symb-cache type-specifier)))
 	  `(progn
 	     (when (null (ignore-errors (find-class ',struct)))
-	       (let ((*package* (find-package :cl-const-generics.subtypes)))
+	       (let ((*package* (find-package *subtype-package-name*)))
 		 (defstruct (,struct
 			     (:constructor ,struct (,@(map 'list #'car const) ,@(get-params constructor-form)))
 			     (:include ,struct-from)))))
@@ -65,7 +68,7 @@
 ;; TODO DOC Error Check
 ;; TODO Checking Form
 ;; TODO Extending Typep Forms
-(defmacro defstruct-generic (name (&rest const) &key (slots nil) (constructor nil))
+(defmacro defstruct-generic (name (&rest const) &key (slots nil) (args nil))
   "
 ## [macro] defstruct-generic
 
@@ -76,28 +79,33 @@ constructor ... must be &key (a 1) (b 1)
   (assert (every #'(lambda (form) (= 2 (length form))) const)
 	  nil
 	  "deftype-with-const: const=((name type) (name type)...)")
-  
-  `(eval-when (:compile-toplevel :load-toplevel :execute)
-     (delete-subtype (symbol-name ',name))
-     (defstruct (,name
-		 (:constructor
-		     ,(symb 'make-original- name)
-		     (,@(map 'list #'car const) ,@(get-params constructor))))
-       ,@(loop for c in const
-	       collect
-	       (progn `(,(car c) ,(car c) :type ,(second c))))
-       ,@slots)
 
-     (defmacro ,(symb 'make- name) ((,@(map 'list #'car const)) ,@constructor)
-       `(,(eval `(,',name ,,@(map 'list #'car const)))
-	 ,,@(map 'list #'car const)
-	 ,,@(get-params constructor)))
-     
-     (defmacro ,name (,@(map 'list #'car const))
-       (eval-when (:compile-toplevel :load-toplevel :execute)
-	 (let ((deftype-form (deftype-blueprint-form ',name ',const ',name ',constructor)))
-	   (let ((type-identifier (eval (apply deftype-form (list ,@(map 'list #'car const))))))
-	     `',type-identifier))))))
+  (let ((constructor args))
+    `(eval-when (:compile-toplevel :load-toplevel :execute)
+       (delete-subtype (symbol-name ',name))
+       (defstruct (,name
+		   (:constructor
+		       ,(symb 'make-original- name)
+		       (,@(map 'list #'car const) ,@(get-params constructor))))
+	 ,@(loop for c in const
+		 collect
+		 (progn `(,(car c) ,(car c) :type ,(second c))))
+	 ,@slots)
 
-(deftype <const> (form) "" `(and ,(eval form)))
+       (defmacro ,(symb 'make- name) ((,@(map 'list #'car const)) ,@constructor)
+	 `(,(eval `(,',name ,,@(map 'list #'car const)))
+	   ,,@(map 'list #'car const)
+	   ,,@(get-params constructor)))
+       
+       (defmacro ,name (,@(map 'list #'car const))
+	 (eval-when (:compile-toplevel :load-toplevel :execute)
+	   (let ((deftype-form (deftype-blueprint-form ',name ',const ',name ',constructor)))
+	     (let ((type-identifier (eval (apply deftype-form (list ,@(map 'list #'car const))))))
+	       `',type-identifier)))))))
+
+(deftype <const> (form)
+  "## [Type] <const>
+
+"
+  `(and ,(eval form)))
 
