@@ -35,14 +35,15 @@
 		    (get-params sym))))))))
 
   (defun const-params (struct-name)
-    "(const-params (Matrix `(1 2 3) :double))
+    "
+(const-params (Matrix `(1 2 3) :double))
 (getf * 'rank) -> 1 2 3
 (getf * 'dtype) -> double"
     (declare (type symbol struct-name)
 	     (optimize (speed 3)))
     (let* ((struct-name (symbol-name struct-name))
 	   (read-from   (or (position (char "(" 0) struct-name)
-			    (error "const-params: Given structure isn't const generics")))
+			    (return-from const-params nil)))
 	   (parsed      (reverse (car (read-from-string struct-name :eof-value "" :start read-from))))
 	   (result      nil))
 
@@ -52,9 +53,8 @@
 	      (=     (pop parsed))
 	      (dtype (pop parsed))	      
 	      (place (pop parsed)))
-	  (assert (and value = dtype place)
-		  nil
-		  "const-params: The form was invaild: ~a" struct-name)
+	  (when (not (and value = dtype place))
+	    (return-from const-params nil))
 	  (setf (getf result place) value)))
       result))
   
@@ -74,6 +74,9 @@
 	       append
 	       `(,(car c) ,(second c) = ,arg))
 	 (list '|)|))))
+
+  (defun const-type-name-compiler (name const args)
+    (funcall (const-type-name name const) args))
   
   (defun deftype-blueprint-form (name const struct-from constructor-form
 				 &aux
@@ -91,7 +94,7 @@
 	       (let ((*package* (find-package *subtype-package-name*)))
 		 (defstruct ,struct)
 	 	 (defstruct (,type-specifier
-			     (:constructor ,struct (,@(map 'list #'car const) ,@(get-params constructor-form)))
+			     (:constructor ,type-specifier (,@(map 'list #'car const) ,@(get-params constructor-form)))
 			     (:include ,struct-from)))))
 	     ',type-specifier)))))
 
@@ -189,14 +192,16 @@ See also: examples.lisp
 	 `(and ,(eval `(,',name ,,@(map 'list #'car const)))))
 
        (defmacro ,(symb 'make- name) ((,@(map 'list #'car const)) ,@constructor)
-	 `(,(eval `(,',name ,,@(map 'list #'car const)))
-	   ,,@(map 'list #'car const)
-	   ,,@(get-params constructor)))
+	 `(eval-when (:compile-toplevel :load-toplevel :execute)
+	    (the
+	     ,(eval `(,',name ,,@(map 'list #'car const)))
+	     (,(eval `(,',name ,,@(map 'list #'car const)))
+	      ,,@(map 'list #'car const)
+	      ,,@(get-params constructor)))))
        
        (defmacro ,name (,@(map 'list #'car const))
 	 (eval-when (:compile-toplevel :load-toplevel :execute)
 	   (let ((deftype-form (deftype-blueprint-form ',name ',const ',name ',constructor)))
 	     (let ((type-identifier (eval (apply deftype-form (list ,@(map 'list #'car const))))))
 	       `',type-identifier)))))))
-
 
