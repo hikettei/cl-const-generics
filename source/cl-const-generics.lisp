@@ -33,6 +33,30 @@
 		(if (= (length sym) 2)
 		    (list (car sym))
 		    (get-params sym))))))))
+
+  (defun const-params (struct-name)
+    "(const-params (Matrix `(1 2 3) :double))
+(getf * 'rank) -> 1 2 3
+(getf * 'dtype) -> double"
+    (declare (type symbol struct-name)
+	     (optimize (speed 3)))
+    (let* ((struct-name (symbol-name struct-name))
+	   (read-from   (or (position (char "(" 0) struct-name)
+			    (error "const-params: Given structure isn't const generics")))
+	   (parsed      (reverse (car (read-from-string struct-name :eof-value "" :start read-from))))
+	   (result      nil))
+
+      ;; PARSED = (PLACE DTYPE = VALUE)
+      (loop while parsed do
+	(let ((value (pop parsed))
+	      (=     (pop parsed))
+	      (dtype (pop parsed))	      
+	      (place (pop parsed)))
+	  (assert (and value = dtype place)
+		  nil
+		  "const-params: The form was invaild: ~a" struct-name)
+	  (setf (getf result place) value)))
+      result))
   
   (defun const-type-name (name &rest const)
     "Returns a function which returns a symbol like: Tensor(I<FIXNUM>=1, J<FIXNUM>=1)"
@@ -60,15 +84,16 @@
     ;; :double is into :dense
     ;; Make :float and :double interoperatible
     #'(lambda (&rest args)
-	(let* ((type-specifier (apply f args))
-	       (struct (symb-cache type-specifier)))
+	(let* ((type-specifier (apply f args))	       
+	       (struct (symb-cache '- type-specifier)))
 	  `(progn
 	     (when (null (ignore-errors (find-class ',struct)))
 	       (let ((*package* (find-package *subtype-package-name*)))
-		 (defstruct (,struct
+		 (defstruct ,struct)
+	 	 (defstruct (,type-specifier
 			     (:constructor ,struct (,@(map 'list #'car const) ,@(get-params constructor-form)))
 			     (:include ,struct-from)))))
-	     ',struct)))))
+	     ',type-specifier)))))
 
 (defmacro defstruct-generic (name (&rest const) &key (slots nil) (args nil))
   "
