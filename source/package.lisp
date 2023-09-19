@@ -3,9 +3,7 @@
 
 (defpackage :cl-const-generics
   (:use :cl)
-  (:export
-   #:defstruct-generic
-   #:<const>))
+  (:export #:defstruct-generic))
 
 (in-package :cl-const-generics)
 

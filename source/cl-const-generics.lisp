@@ -1,10 +1,11 @@
 
 (in-package :cl-const-generics)
 
-;; Typep分岐。。。 (make-tensor `(a b)) mitaina kotoga sitai.
-;; ^ そもそも警告出すべき
-
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  ;; Utils
+  ;; When redefining structures defined by the structure which is defined by defstruct-generic
+  ;; For most of processing systems; this behaviour is beyonds them.
+  ;; So we no use to manually delete all old definitions
   (defun delete-subtype (structure-name)
     (let ((deflist (apropos-list structure-name (find-package *subtype-package-name*))))
       (dolist (def deflist)
@@ -54,6 +55,10 @@
 				 &aux
 				   (f (apply #'const-type-name name const)))
     (declare (type symbol name))
+    ;; [TODO] User defined translator for example:
+    ;; :float is converted into :dense
+    ;; :double is into :dense
+    ;; Make :float and :double interoperatible
     #'(lambda (&rest args)
 	(let* ((type-specifier (apply f args))
 	       (struct (symb-cache type-specifier)))
@@ -65,15 +70,78 @@
 			     (:include ,struct-from)))))
 	     ',struct)))))
 
-;; TODO DOC Error Check
-;; TODO Checking Form
-;; TODO Extending Typep Forms
 (defmacro defstruct-generic (name (&rest const) &key (slots nil) (args nil))
   "
-## [macro] defstruct-generic
+# [macro] defstruct-generic
 
-const ... (name type ?)
-constructor ... must be &key (a 1) (b 1)
+```lisp
+(defstruct-generic (name (&rest const) &key (slots nil) (args nil)))
+```
+
+Defines a structure of `name` but can use the feature of Const Generics. ~~As of this writing, the options regarding the structure defined here are intentionally kept to be limited; that should be kept small as it can be created at times unintentionally by the user. Therefore, the intended use is to wrap highly functional classes or structures with it.~~ (NVM about this)
+
+This macro erases the old definition when it is compiled, so redefinition of the structure should work.
+
+## Inputs
+
+`name[symbol]` indicates a name of structure and generic-type indicator.
+
+`const[list]` Const Generic Pamareters. Used to dispatch types
+
+`slots[list]` a form indicating slots of the structure; never used to dispatch types.
+
+`args[list]`  a form which placed after the `defstruct .. :constructor`.
+
+## Effects
+
+Plus, This macro defines two macros and a type in addition to the structure:
+
+### [type] <name>
+
+```lisp
+(<Name> const)
+```
+
+Indicates the type considering `const`, and can be used like:
+
+```lisp
+(the (<Name> const) form)
+```
+
+### [macro] make-name
+
+```lisp
+(make-name (const) args)
+```
+
+This is the top of variables; creates the structure with given `const` and `args`, returning a structure with const. The arguments corresponding to `const` are evaluated in place, so no variables can be placed. On the other hand, `args` are used to create a new constructor and evaluations are done after the expansion.
+
+### [macro] name
+
+```lisp
+(name const)
+```
+
+This macro is not only indicating `type-specifier` of const generics, but telling the combination of `const` used the toplevel. Accordingly, it always should be placed where evaluation should be done before the execution. For example, there's several ways of representing Const Generics Types:
+
+```lisp
+;; Using Type Indicator
+(the (<Name> 1 2) form)
+
+;; Macro + Evaluating
+(the #.(Name 1 2) form)
+
+;; Method Dispatching
+
+(defmethod any-method ((x #.(Name 1 2)))
+    body)
+
+;; Ftype declaration
+
+(declaim (ftype (function (<Name> 1 2) (<Name> 3 4)) my-function))
+```
+
+See also: examples.lisp
 "
 
   (assert (every #'(lambda (form) (= 2 (length form))) const)
@@ -92,6 +160,9 @@ constructor ... must be &key (a 1) (b 1)
 		 (progn `(,(car c) ,(car c) :type ,(second c))))
 	 ,@slots)
 
+       (deftype ,(symb '< name '>) (,@(map 'list #'car const))
+	 `(and ,(eval `(,',name ,,@(map 'list #'car const)))))
+
        (defmacro ,(symb 'make- name) ((,@(map 'list #'car const)) ,@constructor)
 	 `(,(eval `(,',name ,,@(map 'list #'car const)))
 	   ,,@(map 'list #'car const)
@@ -103,9 +174,4 @@ constructor ... must be &key (a 1) (b 1)
 	     (let ((type-identifier (eval (apply deftype-form (list ,@(map 'list #'car const))))))
 	       `',type-identifier)))))))
 
-(deftype <const> (form)
-  "## [Type] <const>
-
-"
-  `(and ,(eval form)))
 

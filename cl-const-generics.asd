@@ -9,10 +9,8 @@
 (defsystem :cl-const-generics
   :author "hikettei"
   :licence "MIT"
-  :description "An attempt to introduce Const Generics to Common Lisp"
+  :description "A Meta-Programming attempt to introduce Const Generics to Common Lisp"
   :pathname "source"
   :serial t
   :components ((:file "package")
 	       (:file "cl-const-generics")))
-
-
