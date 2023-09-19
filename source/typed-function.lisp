@@ -1,10 +1,9 @@
 
 (in-package :cl-const-generics)
 
-;; 再定義 ;; Aprops全部消す
 (defstruct-generic Tensor
     ((rank fixnum))
-    :slots ((value 1))
+    :slots ((value 1) (dtype :float) (device t))
     :constructor (&key (value 0)))
 
 (declaim (ftype (function ((<const> (Tensor 1))

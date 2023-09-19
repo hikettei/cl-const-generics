@@ -24,6 +24,13 @@
 ;; Compiler-macroでstruct + struct -> structを返す関数を作る + 構造体を入れ替え
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun delete-subtype (structure-name)
+    (let ((deflist (apropos-list structure-name (find-package :cl-const-generics.subtypes))))
+      (dolist (def deflist)
+	;;(let ((current (apropos-list (symbol-name def))))
+	;;  (print current))
+	(setf (find-class def) nil))))
+  
   (defun symb (&rest inputs)
     (intern (with-output-to-string (out) (dolist (sym inputs) (princ sym out)))))
   
@@ -72,14 +79,11 @@
 	(let* ((type-specifier (apply f args))
 	       (struct (symb-cache type-specifier)))
 	  `(progn
-	     ;; Find-symbolで代用
-	     ;; ここで作るSymbolの名前をdefmethodでhogehoge...することで
-	     ;; extensible typep
-	     ;; douyatte kensaku subekika...
 	     (when (null (ignore-errors (find-class ',struct)))
-	       (defstruct (,struct
-			   (:constructor ,struct (,@(map 'list #'car const) ,@(get-params constructor-form)))
-			   (:include ,struct-from))))
+	       (let ((*package* (find-package :cl-const-generics.subtypes)))
+		 (defstruct (,struct
+			     (:constructor ,struct (,@(map 'list #'car const) ,@(get-params constructor-form)))
+			     (:include ,struct-from)))))
 	     ',struct)))))
 
 ;; TODO DOC Error Check
@@ -98,6 +102,7 @@ constructor ... must be &key (a 1) (b 1)
 	  "deftype-with-const: const=((name type) (name type)...)")
   
   `(eval-when (:compile-toplevel :load-toplevel :execute)
+     (delete-subtype (symbol-name ',name))
      (defstruct (,name
 		 (:constructor
 		     ,(symb 'make-original- name)
@@ -107,7 +112,6 @@ constructor ... must be &key (a 1) (b 1)
 	       (progn `(,(car c) ,(car c) :type ,(second c))))
        ,@slots)
 
-     ;; (PARAMETERS) MORE ARGS...
      (defmacro ,(symb 'make- name) ((,@(map 'list #'car const)) ,@constructor)
        `(,(eval `(,',name ,,@(map 'list #'car const)))
 	 ,,@(map 'list #'car const)
@@ -119,6 +123,5 @@ constructor ... must be &key (a 1) (b 1)
 	   (let ((type-identifier (eval (apply deftype-form (list ,@(map 'list #'car const))))))
 	     `',type-identifier))))))
 
-(deftype <const> (form)
-  `(and ,(eval form)))
+(deftype <const> (form) "" `(and ,(eval form)))
 
