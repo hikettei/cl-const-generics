@@ -15,3 +15,9 @@ Attributes the ConstGenerics to the function.
      (define-compiler-macro ',function-name (&whole form args)
        
        )))
+
+
+
+(defun add-rank (x y)
+  (make-tensor
+   (+ (tensor-rank x) (tensor-rank y))))

@@ -1,6 +1,12 @@
 
 (in-package :cl-const-generics)
 
+;; 戦略: コンパイル前に必要なStructの名前全部コンパイル
+;; Inline
+;; (wrap-classみたいなマクロを作る
+
+;; CLOS ClassをWrapして使う
+;; うまく行きそう
 ;; コンパイル前にTensor内で使う全てのShapeを記録+deftype
 ;; Inlining and optimizing;
 ;; structがValueを持つことなく実装したい;
@@ -17,7 +23,6 @@
 ;; Compiler-macroでstruct + struct -> structを返す関数を作る + 構造体を入れ替え
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter *constructor-cache-table* (make-hash-table))
   (defun const-type-name (name &rest const)
     "Returns a function which returns a symbol like: Tensor(I<FIXNUM>=1, J<FIXNUM>=1)"
     #'(lambda (&rest args)
@@ -35,7 +40,7 @@
 	       `(,(car c) ,(second c) = ,arg))
 	 (list '|)|))))
   
-  (defun deftype-blueprint-form (name const body struct-from
+  (defun deftype-blueprint-form (name const struct-from
 				 &aux
 				   (f (apply #'const-type-name name const)))
     (declare (type symbol name))
@@ -46,7 +51,8 @@
 	     ;; Find-symbolで代用
 	     ;; ここで作るSymbolの名前をdefmethodでhogehoge...することで
 	     ;; extensible typep
-	     (when (null (find-symbol (symbol-name ',struct) (find-package :cl-const-generics.subtypes)))
+	     ;; douyatte kensaku subekika...
+	     (when (null (ignore-errors (find-class ',struct)))
 	       (defstruct (,struct
 			   (:constructor ,struct (,@(map 'list #'car const)))
 			   (:include ,struct-from)))
@@ -55,7 +61,7 @@
 	     ',struct)))))
 
 ;; TODO DOC Error Check
-(defmacro deftype-with-const (name (&rest const) &body body)
+(defmacro deftype-with-const (name (&rest const))
   "
 ## [macro] deftype-with-const
 "
@@ -78,17 +84,14 @@
      
      (defmacro ,name (,@(map 'list #'car const))
        (eval-when (:compile-toplevel :load-toplevel :execute)
-	 (let ((deftype-form (deftype-blueprint-form ',name ',const ',body ',name)))
+	 (let ((deftype-form (deftype-blueprint-form ',name ',const ',name)))
 	   (let ((type-identifier (eval (apply deftype-form (list ,@(map 'list #'car const))))))
 	     `',type-identifier))))))
 
-(defmacro the! (const-value-type form)
-  `(the ,(eval const-value-type) ,form))
-
+;; (the #.(Tensor 3) (make-tensor 3))
 ;; rename: define-const-generic
 ;; ((name type pred)) t=ignore
 (deftype-with-const Tensor
-    ((rank fixnum))
-  ;; body -> typepの条件に変えると思う
-  `(or fixnum))
+    ((rank fixnum)))
+
 
